@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Das Drum & Rent — Music Room</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,600;1,300&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --gold: #C8A96E;
+    --gold-light: #E8C98A;
+    --dark: #0A0A0C;
+    --panel-bg: rgba(10,10,14,0.92);
+    --border: rgba(200,169,110,0.3);
+    --text: #E8E0D0;
+    --accent: #FF4B2B;
+  }
+
+  body {
+    background: #000;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    overflow: hidden;
+    user-select: none;
+  }
+
+  #canvas-container {
+    position: fixed; inset: 0;
+    cursor: grab;
+  }
+  #canvas-container:active { cursor: grabbing; }
+  #canvas-container canvas { display: block; width: 100% !important; height: 100% !important; }
+
+  /* HUD TOP BAR */
+  #topbar {
+    position: fixed; top: 0; left: 0; right: 0;
+    height: 56px;
+    background: linear-gradient(180deg, rgba(10,10,14,0.95) 0%, transparent 100%);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 28px;
+    z-index: 100;
+    border-bottom: 1px solid var(--border);
+  }
+  .brand {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    letter-spacing: 3px;
+    color: var(--gold);
+    text-shadow: 0 0 20px rgba(200,169,110,0.4);
+  }
+  .brand span { color: var(--accent); }
+  .tagline {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: rgba(232,224,208,0.5);
+    text-transform: uppercase;
+  }
+  .nav-pills {
+    display: flex; gap: 8px;
+  }
+  .pill {
+    padding: 5px 14px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--gold);
+    cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+  }
+  .pill:hover, .pill.active {
+    background: var(--gold);
+    color: var(--dark);
+  }
+
+  /* CROSSHAIR */
+  #crosshair {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    width: 24px; height: 24px;
+    pointer-events: none;
+    z-index: 50;
+    opacity: 0.6;
+  }
+  #crosshair::before, #crosshair::after {
+    content: '';
+    position: absolute;
+    background: var(--gold);
+    border-radius: 2px;
+  }
+  #crosshair::before { width: 2px; height: 100%; left: 50%; transform: translateX(-50%); }
+  #crosshair::after  { width: 100%; height: 2px; top: 50%; transform: translateY(-50%); }
+
+  /* SIDE PANEL */
+  #side-panel {
+    position: fixed; top: 56px; right: 0; bottom: 0;
+    width: 320px;
+    background: var(--panel-bg);
+    border-left: 1px solid var(--border);
+    backdrop-filter: blur(20px);
+    z-index: 90;
+    transform: translateX(100%);
+    transition: transform 0.4s cubic-bezier(0.4,0,0.2,1);
+    display: flex; flex-direction: column;
+    overflow-y: auto;
+  }
+  #side-panel.open { transform: translateX(0); }
+
+  .panel-section {
+    padding: 20px 22px;
+    border-bottom: 1px solid var(--border);
+  }
+  .panel-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 2px;
+    color: var(--gold);
+    margin-bottom: 14px;
+  }
+  .panel-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(232,224,208,0.5);
+    margin-bottom: 6px;
+  }
+
+  /* IMAGE UPLOAD */
+  .upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 8px;
+    padding: 24px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .upload-zone:hover { border-color: var(--gold); background: rgba(200,169,110,0.05); }
+  .upload-zone input[type=file] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer;
+    width: 100%; height: 100%;
+  }
+  .upload-icon {
+    font-size: 28px; margin-bottom: 8px;
+    filter: grayscale(0.5);
+  }
+  .upload-text {
+    font-size: 12px;
+    color: rgba(232,224,208,0.6);
+    line-height: 1.5;
+  }
+  .upload-text strong { color: var(--gold); }
+
+  .surface-selector {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px; margin-bottom: 14px;
+  }
+  .surf-btn {
+    padding: 8px 6px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .surf-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .surf-btn.active { border-color: var(--gold); background: rgba(200,169,110,0.15); color: var(--gold-light); }
+
+  /* PREVIEW THUMB */
+  #img-preview {
+    width: 100%;
+    height: 120px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    object-fit: cover;
+    display: none;
+    margin-top: 12px;
+  }
+  #img-preview.visible { display: block; }
+
+  /* LIGHTING CONTROLS */
+  .slider-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 10px;
+  }
+  .slider-row label {
+    font-size: 11px;
+    color: rgba(232,224,208,0.6);
+    width: 70px; flex-shrink: 0;
+  }
+  input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--gold);
+    cursor: pointer;
+  }
+  .slider-val {
+    font-size: 11px;
+    color: var(--gold);
+    width: 30px;
+    text-align: right;
+  }
+
+  /* CONTROLS HINT */
+  #controls-hint {
+    position: fixed; bottom: 20px; left: 50%;
+    transform: translateX(-50%);
+    display: flex; gap: 8px;
+    z-index: 80;
+    pointer-events: none;
+  }
+  .hint-key {
+    background: rgba(10,10,14,0.8);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: rgba(232,224,208,0.7);
+    backdrop-filter: blur(10px);
+  }
+  .hint-key strong { color: var(--gold); }
+
+  /* INFO CARD (object hover) */
+  #info-card {
+    position: fixed; bottom: 70px; left: 28px;
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    max-width: 220px;
+    backdrop-filter: blur(20px);
+    z-index: 80;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: all 0.25s;
+    pointer-events: none;
+  }
+  #info-card.visible { opacity: 1; transform: translateY(0); }
+  .ic-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 20px;
+    letter-spacing: 2px;
+    color: var(--gold);
+  }
+  .ic-desc {
+    font-size: 11px;
+    color: rgba(232,224,208,0.6);
+    line-height: 1.6;
+    margin-top: 4px;
+  }
+  .ic-price {
+    font-size: 13px;
+    color: var(--accent);
+    margin-top: 8px;
+    font-weight: 600;
+  }
+
+  /* LOADING */
+  #loader {
+    position: fixed; inset: 0;
+    background: var(--dark);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 999;
+    transition: opacity 0.6s;
+  }
+  #loader.fade { opacity: 0; pointer-events: none; }
+  .loader-brand {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 56px;
+    letter-spacing: 6px;
+    color: var(--gold);
+    text-shadow: 0 0 40px rgba(200,169,110,0.6);
+  }
+  .loader-bar {
+    width: 200px; height: 2px;
+    background: rgba(200,169,110,0.2);
+    border-radius: 2px;
+    margin-top: 24px;
+    overflow: hidden;
+  }
+  .loader-fill {
+    height: 100%;
+    background: var(--gold);
+    width: 0%;
+    transition: width 0.8s ease;
+    border-radius: 2px;
+  }
+  .loader-sub {
+    font-size: 12px;
+    letter-spacing: 3px;
+    color: rgba(232,224,208,0.4);
+    margin-top: 12px;
+    text-transform: uppercase;
+  }
+
+  /* toggle panel btn */
+  #panel-toggle {
+    position: fixed;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    background: var(--panel-bg);
+    border: 1px solid var(--border);
+    border-right: none;
+    border-radius: 8px 0 0 8px;
+    padding: 14px 8px;
+    cursor: pointer;
+    z-index: 95;
+    writing-mode: vertical-lr;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 13px;
+    letter-spacing: 2px;
+    color: var(--gold);
+    transition: background 0.2s;
+  }
+  #panel-toggle:hover { background: rgba(200,169,110,0.1); }
+  #panel-toggle.hidden-when-open { display: none; }
+
+  .apply-btn {
+    width: 100%;
+    padding: 10px;
+    background: var(--gold);
+    color: var(--dark);
+    border: none;
+    border-radius: 6px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    margin-top: 12px;
+    transition: background 0.2s;
+  }
+  .apply-btn:hover { background: var(--gold-light); }
+
+  .room-stat {
+    display: flex; justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(200,169,110,0.1);
+    font-size: 12px;
+  }
+  .room-stat:last-child { border-bottom: none; }
+  .stat-label { color: rgba(232,224,208,0.5); }
+  .stat-val { color: var(--gold); font-weight: 600; }
+</style>
+</head>
+<body>
+
+<!-- LOADER -->
+<div id="loader">
+  <div class="loader-brand">Das Drum & Rent</div>
+  <div class="loader-bar"><div class="loader-fill" id="loader-fill"></div></div>
+  <div class="loader-sub">Loading Music Room...</div>
+</div>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div>
+    <div class="brand">Das Drum <span>&</span> Rent</div>
+    <div class="tagline">Premium Music Studio Experience</div>
+  </div>
+  <div class="nav-pills">
+    <button class="pill active" onclick="setView('walk')">🚶 Walk</button>
+    <button class="pill" onclick="setView('orbit')">🔄 Orbit</button>
+    <button class="pill" onclick="setView('top')">📐 Top</button>
+  </div>
+</div>
+
+<!-- CANVAS -->
+<div id="canvas-container"></div>
+
+<!-- CROSSHAIR -->
+<div id="crosshair"></div>
+
+<!-- SIDE PANEL TOGGLE -->
+<div id="panel-toggle" onclick="togglePanel()">PANEL ▸</div>
+
+<!-- SIDE PANEL -->
+<div id="side-panel">
+  <div class="panel-section">
+    <div class="panel-title">🎨 Wall Artwork</div>
+    <div class="panel-label">Select Surface</div>
+    <div class="surface-selector">
+      <button class="surf-btn active" onclick="selectSurf('wall-front')" id="sb-wall-front">Front Wall</button>
+      <button class="surf-btn" onclick="selectSurf('wall-back')" id="sb-wall-back">Back Wall</button>
+      <button class="surf-btn" onclick="selectSurf('wall-left')" id="sb-wall-left">Left Wall</button>
+      <button class="surf-btn" onclick="selectSurf('wall-right')" id="sb-wall-right">Right Wall</button>
+      <button class="surf-btn" onclick="selectSurf('floor')" id="sb-floor">Floor</button>
+      <button class="surf-btn" onclick="selectSurf('ceiling')" id="sb-ceiling">Ceiling</button>
+    </div>
+    <div class="panel-label">Upload Image</div>
+    <div class="upload-zone">
+      <input type="file" id="img-input" accept="image/*" onchange="handleImageUpload(event)">
+      <div class="upload-icon">📸</div>
+      <div class="upload-text">
+        <strong>Click or drag</strong> to upload<br>
+        PNG, JPG, WEBP supported
+      </div>
+    </div>
+    <img id="img-preview" alt="preview">
+    <button class="apply-btn" onclick="applyImage()">APPLY TO SURFACE</button>
+  </div>
+
+  <div class="panel-section">
+    <div class="panel-title">💡 Lighting</div>
+    <div class="slider-row">
+      <label>Ambient</label>
+      <input type="range" min="0" max="100" value="40" id="sl-ambient" oninput="updateLight()">
+      <span class="slider-val" id="sv-ambient">40</span>
+    </div>
+    <div class="slider-row">
+      <label>Spot R</label>
+      <input type="range" min="0" max="100" value="80" id="sl-spot" oninput="updateLight()">
+      <span class="slider-val" id="sv-spot">80</span>
+    </div>
+    <div class="slider-row">
+      <label>Warm Fill</label>
+      <input type="range" min="0" max="100" value="60" id="sl-warm" oninput="updateLight()">
+      <span class="slider-val" id="sv-warm">60</span>
+    </div>
+    <div class="slider-row">
+      <label>Fog</label>
+      <input type="range" min="0" max="100" value="30" id="sl-fog" oninput="updateLight()">
+      <span class="slider-val" id="sv-fog">30</span>
+    </div>
+  </div>
+
+  <div class="panel-section">
+    <div class="panel-title">🏠 Room Info</div>
+    <div class="room-stat"><span class="stat-label">Room</span><span class="stat-val">Practice Studio A</span></div>
+    <div class="room-stat"><span class="stat-label">Size</span><span class="stat-val">8 × 6 × 3.5 m</span></div>
+    <div class="room-stat"><span class="stat-label">Acoustic</span><span class="stat-val">Class A</span></div>
+    <div class="room-stat"><span class="stat-label">Rate</span><span class="stat-val">฿350 / hr</span></div>
+    <div class="room-stat"><span class="stat-label">Equipment</span><span class="stat-val">Full Set</span></div>
+  </div>
+
+  <div class="panel-section">
+    <div class="panel-title">📋 Equipment</div>
+    <div class="room-stat"><span class="stat-label">Grand Piano</span><span class="stat-val">Yamaha C7</span></div>
+    <div class="room-stat"><span class="stat-label">Mallet Perc.</span><span class="stat-val">Adams Marimba</span></div>
+    <div class="room-stat"><span class="stat-label">Drum Kit</span><span class="stat-val">Pearl Masters</span></div>
+    <div class="room-stat"><span class="stat-label">Monitor</span><span class="stat-val">Yamaha HS8</span></div>
+  </div>
+</div>
+
+<!-- INFO CARD -->
+<div id="info-card">
+  <div class="ic-name" id="ic-name">—</div>
+  <div class="ic-desc" id="ic-desc">—</div>
+  <div class="ic-price" id="ic-price"></div>
+</div>
+
+<!-- CONTROLS HINT -->
+<div id="controls-hint">
+  <div class="hint-key"><strong>W A S D</strong> Move</div>
+  <div class="hint-key"><strong>Mouse Drag</strong> Look</div>
+  <div class="hint-key"><strong>Q / E</strong> Up / Down</div>
+  <div class="hint-key"><strong>Scroll</strong> Zoom</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ========== GLOBALS ==========
+let scene, camera, renderer, clock;
+let ambientLight, spotLight, warmLight, rimLight;
+let objects = []; // raycasting targets
+let namedObjects = {}; // name → mesh
+let walls = {}; // surface key → mesh
+let pendingTexture = null, selectedSurface = 'wall-front';
+let uploadedImage = null;
+
+// Camera movement
+let camMode = 'walk'; // walk | orbit | top
+let keys = {};
+let mouse = { x: 0, y: 0, down: false, lastX: 0, lastY: 0 };
+let camYaw = 0, camPitch = 0;
+let camPos = new THREE.Vector3(0, 1.6, 3);
+let orbitTarget = new THREE.Vector3(0, 1, 0);
+let orbitRadius = 7, orbitYaw = 0.3, orbitPitch = 0.4;
+let raycaster = new THREE.Raycaster();
+let hoveredObj = null;
+
+const OBJECT_INFO = {
+  'grand-piano': {
+    name: 'Grand Piano',
+    desc: 'Yamaha C7 Concert Grand\n9-foot, full concert range\nPerfect touch & resonance',
+    price: 'Rental: ฿800/hr'
+  },
+  'marimba': {
+    name: 'Mallet Percussion',
+    desc: 'Adams Marimba 5.0 Oct\nAfrican Padauk bars\nSoft/Hard mallets included',
+    price: 'Rental: ฿400/hr'
+  },
+  'drum-kit': {
+    name: 'Drum Kit',
+    desc: 'Pearl Masters Maple\n7-piece configuration\nZildjian A Series cymbals',
+    price: 'Rental: ฿500/hr'
+  },
+  'monitor-l': {
+    name: 'Studio Monitor',
+    desc: 'Yamaha HS8 Active\nFlat response reference\nProfessional mixing quality',
+    price: 'Included with room'
+  },
+  'monitor-r': {
+    name: 'Studio Monitor',
+    desc: 'Yamaha HS8 Active\nFlat response reference\nProfessional mixing quality',
+    price: 'Included with room'
+  }
+};
+
+// ========== CANVAS TEXTURES ==========
+function makeCanvasTex(w, h, drawFn) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  drawFn(ctx, w, h);
+  const t = new THREE.CanvasTexture(c);
+  return t;
+}
+
+function woodTexture(dark=false) {
+  return makeCanvasTex(512, 512, (ctx, w, h) => {
+    const base = dark ? '#1A0F08' : '#3D2010';
+    ctx.fillStyle = base;
+    ctx.fillRect(0, 0, w, h);
+    // wood grain lines
+    for (let i = 0; i < 60; i++) {
+      const y = (i / 60) * h + (Math.random()-0.5)*8;
+      const grad = ctx.createLinearGradient(0, y-2, 0, y+2);
+      const c1 = dark ? 'rgba(60,30,10,0.6)' : 'rgba(100,55,20,0.5)';
+      grad.addColorStop(0,'transparent');
+      grad.addColorStop(0.5, c1);
+      grad.addColorStop(1,'transparent');
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      for (let x = 0; x < w; x += 20) {
+        ctx.lineTo(x, y + (Math.random()-0.5)*4);
+      }
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 1 + Math.random()*1.5;
+      ctx.stroke();
+    }
+    // knots
+    for (let i=0; i<3; i++) {
+      const kx = Math.random()*w, ky = Math.random()*h;
+      const kr = 8 + Math.random()*15;
+      const grad = ctx.createRadialGradient(kx,ky,0,kx,ky,kr);
+      grad.addColorStop(0, dark?'rgba(10,5,2,0.8)':'rgba(30,15,5,0.7)');
+      grad.addColorStop(1,'transparent');
+      ctx.fillStyle = grad; ctx.beginPath();
+      ctx.arc(kx,ky,kr,0,Math.PI*2); ctx.fill();
+    }
+  });
+}
+
+function concreteTexture(color='#2A2A2E') {
+  return makeCanvasTex(512, 512, (ctx, w, h) => {
+    ctx.fillStyle = color; ctx.fillRect(0,0,w,h);
+    // noise
+    for (let i=0; i<8000; i++) {
+      const x=Math.random()*w, y=Math.random()*h;
+      const v = Math.floor(Math.random()*30)-15;
+      const alpha = Math.random()*0.08;
+      ctx.fillStyle = v>0?`rgba(255,255,255,${alpha})`:`rgba(0,0,0,${alpha})`;
+      ctx.fillRect(x,y,2,2);
+    }
+    // cracks
+    for (let i=0; i<5; i++) {
+      ctx.beginPath();
+      ctx.moveTo(Math.random()*w, Math.random()*h);
+      for(let j=0;j<8;j++) ctx.lineTo(Math.random()*w, Math.random()*h);
+      ctx.strokeStyle='rgba(0,0,0,0.08)'; ctx.lineWidth=0.5; ctx.stroke();
+    }
+  });
+}
+
+function brickTexture() {
+  return makeCanvasTex(512, 256, (ctx, w, h) => {
+    ctx.fillStyle = '#2C1810'; ctx.fillRect(0,0,w,h);
+    const bw=64, bh=28, mortar=3;
+    for(let row=0; row*bh<h+bh; row++) {
+      const offset = row%2===0?0:bw/2;
+      for(let col=-1; col*bw<w+bw; col++) {
+        const x=col*bw+offset, y=row*(bh+mortar);
+        const shade = 160+Math.floor(Math.random()*40);
+        ctx.fillStyle = `rgb(${shade*0.55},${shade*0.25},${shade*0.15})`;
+        ctx.fillRect(x+mortar/2, y+mortar/2, bw-mortar, bh-mortar);
+        // noise on brick
+        for(let n=0;n<20;n++){
+          ctx.fillStyle=`rgba(0,0,0,${Math.random()*0.1})`;
+          ctx.fillRect(x+mortar+Math.random()*(bw-mortar*2), y+mortar+Math.random()*(bh-mortar*2), 3,3);
+        }
+      }
+    }
+  });
+}
+
+function metalTexture(hue=200) {
+  return makeCanvasTex(256, 256, (ctx, w, h) => {
+    const grad = ctx.createLinearGradient(0,0,w,h);
+    grad.addColorStop(0,'#888'); grad.addColorStop(0.5,'#ddd');
+    grad.addColorStop(1,'#666');
+    ctx.fillStyle=grad; ctx.fillRect(0,0,w,h);
+    for(let i=0;i<200;i++){
+      const x=Math.random()*w, y=Math.random()*h;
+      ctx.fillStyle=`rgba(255,255,255,${Math.random()*0.05})`;
+      ctx.fillRect(x,y,1,h);
+    }
+  });
+}
+
+function fabricTexture(r=50,g=50,b=50) {
+  return makeCanvasTex(256, 256, (ctx, w, h) => {
+    ctx.fillStyle=`rgb(${r},${g},${b})`; ctx.fillRect(0,0,w,h);
+    for(let i=0;i<h;i+=4){
+      ctx.strokeStyle=`rgba(255,255,255,0.04)`; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(w,i); ctx.stroke();
+    }
+    for(let i=0;i<w;i+=4){
+      ctx.strokeStyle=`rgba(0,0,0,0.04)`; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,h); ctx.stroke();
+    }
+  });
+}
+
+function logoTexture() {
+  return makeCanvasTex(512, 256, (ctx, w, h) => {
+    ctx.fillStyle='#0A0A0C'; ctx.fillRect(0,0,w,h);
+    // border
+    ctx.strokeStyle='rgba(200,169,110,0.6)'; ctx.lineWidth=3;
+    ctx.strokeRect(10,10,w-20,h-20);
+    // title
+    ctx.fillStyle='#C8A96E';
+    ctx.font='bold 52px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('DAS DRUM', w/2, h*0.35);
+    ctx.fillStyle='#FF4B2B';
+    ctx.font='bold 36px serif';
+    ctx.fillText('& RENT', w/2, h*0.65);
+    // decoration lines
+    ctx.strokeStyle='rgba(200,169,110,0.3)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(60,h*0.5); ctx.lineTo(w-60,h*0.5); ctx.stroke();
+  });
+}
+
+function floorTexture() {
+  return makeCanvasTex(512,512,(ctx,w,h)=>{
+    ctx.fillStyle='#1C1C20'; ctx.fillRect(0,0,w,h);
+    const tileSize=128;
+    for(let ty=0;ty<4;ty++) for(let tx=0;tx<4;tx++){
+      const x=tx*tileSize, y=ty*tileSize;
+      const v = (tx+ty)%2===0?25:20;
+      ctx.fillStyle=`rgb(${v},${v},${v+3})`;
+      ctx.fillRect(x+1,y+1,tileSize-2,tileSize-2);
+      // tile shine
+      const grad=ctx.createLinearGradient(x,y,x+tileSize,y+tileSize);
+      grad.addColorStop(0,'rgba(255,255,255,0.06)');
+      grad.addColorStop(1,'transparent');
+      ctx.fillStyle=grad; ctx.fillRect(x+1,y+1,tileSize-2,tileSize-2);
+    }
+    // grout lines
+    ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.lineWidth=2;
+    for(let i=0;i<=4;i++){
+      ctx.beginPath(); ctx.moveTo(i*tileSize,0); ctx.lineTo(i*tileSize,h); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0,i*tileSize); ctx.lineTo(w,i*tileSize); ctx.stroke();
+    }
+  });
+}
+
+function acousTexture() {
+  return makeCanvasTex(256,256,(ctx,w,h)=>{
+    ctx.fillStyle='#1A1A1E'; ctx.fillRect(0,0,w,h);
+    const s=32;
+    for(let ty=0;ty<h/s;ty++) for(let tx=0;tx<w/s;tx++){
+      const x=tx*s+4, y=ty*s+4;
+      ctx.fillStyle='rgba(40,40,50,0.8)';
+      ctx.beginPath();
+      const indent=6;
+      ctx.moveTo(x+indent,y); ctx.lineTo(x+s-8-indent,y);
+      ctx.lineTo(x+s-8,y+indent); ctx.lineTo(x+s-8,y+s-8-indent);
+      ctx.lineTo(x+s-8-indent,y+s-8); ctx.lineTo(x+indent,y+s-8);
+      ctx.lineTo(x,y+s-8-indent); ctx.lineTo(x,y+indent); ctx.closePath(); ctx.fill();
+    }
+    for(let i=0;i<300;i++){
+      ctx.fillStyle=`rgba(255,255,255,${Math.random()*0.02})`;
+      ctx.fillRect(Math.random()*w,Math.random()*h,2,2);
+    }
+  });
+}
+
+function ceilingTexture() {
+  return makeCanvasTex(512,512,(ctx,w,h)=>{
+    ctx.fillStyle='#141418'; ctx.fillRect(0,0,w,h);
+    // grid lines
+    const step=64;
+    ctx.strokeStyle='rgba(200,169,110,0.08)'; ctx.lineWidth=1;
+    for(let x=0;x<w;x+=step){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke(); }
+    for(let y=0;y<h;y+=step){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke(); }
+  });
+}
+
+function pianoKeyTexture() {
+  return makeCanvasTex(512,128,(ctx,w,h)=>{
+    ctx.fillStyle='#111'; ctx.fillRect(0,0,w,h);
+    const whites=[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14];
+    const wkw=w/whites.length;
+    whites.forEach((i)=>{
+      const x=i*wkw;
+      ctx.fillStyle='#F5F0E8';
+      ctx.fillRect(x+1,0,wkw-2,h-4);
+      ctx.fillStyle='rgba(0,0,0,0.1)';
+      ctx.fillRect(x+1,h-8,wkw-2,4);
+    });
+    // black keys pattern: on C major = 0,2,3,5,6 skipping 0
+    const blackPattern=[1,1,0,1,1,1,0];
+    let wi=0;
+    for(let i=0;i<whites.length-1;i++){
+      if(blackPattern[i%7]){
+        ctx.fillStyle='#0A0A0A';
+        ctx.fillRect((i+1)*wkw - wkw*0.3, 0, wkw*0.6, h*0.65);
+        ctx.fillStyle='rgba(255,255,255,0.05)';
+        ctx.fillRect((i+1)*wkw - wkw*0.28, 0, wkw*0.56, h*0.4);
+      }
+    }
+  });
+}
+
+function marimbaTex() {
+  return makeCanvasTex(512,128,(ctx,w,h)=>{
+    const barW=w/20, barColors=['#4A2800','#5C3200','#6E3E00','#803C00','#7A3800'];
+    for(let i=0;i<20;i++){
+      const x=i*(barW+3);
+      const barH=h-(i/20)*20;
+      ctx.fillStyle=barColors[i%barColors.length];
+      ctx.fillRect(x,h-barH,barW,barH);
+      // shine
+      const g=ctx.createLinearGradient(x,0,x+barW,0);
+      g.addColorStop(0,'rgba(255,255,255,0.15)'); g.addColorStop(1,'transparent');
+      ctx.fillStyle=g; ctx.fillRect(x,h-barH,barW,barH);
+    }
+  });
+}
+
+// ========== INIT ==========
+function init() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x080810);
+  scene.fog = new THREE.Fog(0x080810, 8, 20);
+
+  camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.05, 60);
+  camera.position.copy(camPos);
+  camera.rotation.order = 'YXZ';
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+  document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+  clock = new THREE.Clock();
+  buildRoom();
+  buildLights();
+  buildGrandPiano();
+  buildMarimba();
+  buildDrumKit();
+  buildMonitors();
+  buildFurniture();
+  buildDecorations();
+
+  setupEvents();
+  animate();
+  doLoad();
+}
+
+function doLoad() {
+  let pct = 0;
+  const fill = document.getElementById('loader-fill');
+  const timer = setInterval(()=>{
+    pct += 10 + Math.random()*20;
+    fill.style.width = Math.min(pct,100)+'%';
+    if(pct>=100){
+      clearInterval(timer);
+      setTimeout(()=>{
+        document.getElementById('loader').classList.add('fade');
+        setTimeout(()=> document.getElementById('loader').remove(), 700);
+      },300);
+    }
+  },150);
+}
+
+// ========== ROOM ==========
+function buildRoom() {
+  const W=12, H=4, D=10;
+
+  // Floor
+  const floorMat = new THREE.MeshStandardMaterial({ map: floorTexture(), roughness:0.3, metalness:0.1 });
+  floorMat.map.repeat.set(3,3); floorMat.map.wrapS=floorMat.map.wrapT=THREE.RepeatWrapping;
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W,D), floorMat);
+  floor.rotation.x=-Math.PI/2; floor.receiveShadow=true;
+  floor.name='floor'; scene.add(floor); walls['floor']=floor; objects.push(floor);
+
+  // Ceiling
+  const ceilMat = new THREE.MeshStandardMaterial({ map: ceilingTexture(), roughness:0.9 });
+  ceilMat.map.repeat.set(3,3); ceilMat.map.wrapS=ceilMat.map.wrapT=THREE.RepeatWrapping;
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(W,D), ceilMat);
+  ceil.rotation.x=Math.PI/2; ceil.position.y=H; ceil.receiveShadow=true;
+  ceil.name='ceiling'; scene.add(ceil); walls['ceiling']=ceil; objects.push(ceil);
+
+  // Back wall (brick)
+  const bkMat = new THREE.MeshStandardMaterial({ map: brickTexture(), roughness:0.9, metalness:0 });
+  bkMat.map.repeat.set(4,2); bkMat.map.wrapS=bkMat.map.wrapT=THREE.RepeatWrapping;
+  const backW = new THREE.Mesh(new THREE.PlaneGeometry(W,H), bkMat);
+  backW.position.set(0,H/2,-D/2); backW.receiveShadow=true;
+  backW.name='wall-back'; scene.add(backW); walls['wall-back']=backW; objects.push(backW);
+
+  // Front wall
+  const frMat = new THREE.MeshStandardMaterial({ map: acousTexture(), roughness:0.95 });
+  frMat.map.repeat.set(6,3); frMat.map.wrapS=frMat.map.wrapT=THREE.RepeatWrapping;
+  const frontW = new THREE.Mesh(new THREE.PlaneGeometry(W,H), frMat);
+  frontW.position.set(0,H/2,D/2); frontW.rotation.y=Math.PI; frontW.receiveShadow=true;
+  frontW.name='wall-front'; scene.add(frontW); walls['wall-front']=frontW; objects.push(frontW);
+
+  // Left wall
+  const lftMat = new THREE.MeshStandardMaterial({ map: concreteTexture('#2A2020'), roughness:0.85 });
+  lftMat.map.repeat.set(4,2); lftMat.map.wrapS=lftMat.map.wrapT=THREE.RepeatWrapping;
+  const leftW = new THREE.Mesh(new THREE.PlaneGeometry(D,H), lftMat);
+  leftW.position.set(-W/2,H/2,0); leftW.rotation.y=Math.PI/2; leftW.receiveShadow=true;
+  leftW.name='wall-left'; scene.add(leftW); walls['wall-left']=leftW; objects.push(leftW);
+
+  // Right wall (logo featured)
+  const rgtMat = new THREE.MeshStandardMaterial({ map: concreteTexture('#201C2A'), roughness:0.85 });
+  rgtMat.map.repeat.set(4,2); rgtMat.map.wrapS=rgtMat.map.wrapT=THREE.RepeatWrapping;
+  const rightW = new THREE.Mesh(new THREE.PlaneGeometry(D,H), rgtMat);
+  rightW.position.set(W/2,H/2,0); rightW.rotation.y=-Math.PI/2; rightW.receiveShadow=true;
+  rightW.name='wall-right'; scene.add(rightW); walls['wall-right']=rightW; objects.push(rightW);
+
+  // Logo panel on back wall
+  const logoPanelMat = new THREE.MeshStandardMaterial({ map: logoTexture(), roughness:0.3, metalness:0.2 });
+  const logoPanel = new THREE.Mesh(new THREE.PlaneGeometry(3,1.5), logoPanelMat);
+  logoPanel.position.set(0,3,-D/2+0.02); scene.add(logoPanel);
+
+  // Baseboard trim
+  const trimMat = new THREE.MeshStandardMaterial({ color:0x1A1208, roughness:0.6, metalness:0.3 });
+  const trimGeo = new THREE.BoxGeometry(W,0.12,0.06);
+  [D/2,-D/2].forEach((z,i)=>{
+    const t=new THREE.Mesh(trimGeo,trimMat); t.position.set(0,0.06,z-(i===0?0.03:-0.03));
+    if(i===1) t.rotation.y=Math.PI; scene.add(t);
+  });
+  const trimGeo2 = new THREE.BoxGeometry(0.06,0.12,D);
+  [-W/2,W/2].forEach((x,i)=>{
+    const t=new THREE.Mesh(trimGeo2,trimMat); t.position.set(x+(i===0?0.03:-0.03),0.06,0); scene.add(t);
+  });
+
+  // Acoustic panels on walls
+  const apMat = new THREE.MeshStandardMaterial({ map: acousTexture(), roughness:0.95 });
+  const apPositions = [
+    {x:-5.7,y:1.8,z:-2,ry:Math.PI/2,w:2,h:1.5},
+    {x:-5.7,y:1.8,z:2,ry:Math.PI/2,w:2,h:1.5},
+    {x:5.7,y:1.8,z:-2,ry:-Math.PI/2,w:2,h:1.5},
+    {x:5.7,y:1.8,z:2,ry:-Math.PI/2,w:2,h:1.5},
+  ];
+  apPositions.forEach(p=>{
+    const ap=new THREE.Mesh(new THREE.PlaneGeometry(p.w,p.h),apMat.clone());
+    ap.position.set(p.x,p.y,p.z); ap.rotation.y=p.ry;
+    // gold frame
+    const frame=new THREE.Mesh(new THREE.BoxGeometry(p.w+0.08,p.h+0.08,0.04),
+      new THREE.MeshStandardMaterial({color:0x8B6914,roughness:0.4,metalness:0.6}));
+    frame.position.set(p.x-(p.ry>0?0.02:-0.02),p.y,p.z);
+    frame.rotation.y=p.ry; scene.add(frame); scene.add(ap);
+  });
+
+  // Neon sign on right wall
+  makeNeonSign(5.95, 2.8, 0, -Math.PI/2);
+}
+
+function makeNeonSign(x,y,z,ry) {
+  const canvas=document.createElement('canvas'); canvas.width=400; canvas.height=100;
+  const ctx=canvas.getContext('2d');
+  ctx.fillStyle='transparent'; ctx.clearRect(0,0,400,100);
+  ctx.shadowColor='#FF4B2B'; ctx.shadowBlur=20;
+  ctx.fillStyle='#FF6B4B';
+  ctx.font='bold 48px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('DAS DRUM & RENT', 200, 50);
+  const t=new THREE.CanvasTexture(canvas);
+  const mat=new THREE.MeshBasicMaterial({map:t,transparent:true,side:THREE.DoubleSide});
+  const mesh=new THREE.Mesh(new THREE.PlaneGeometry(3,0.75),mat);
+  mesh.position.set(x,y,z); mesh.rotation.y=ry; scene.add(mesh);
+  // glow point
+  const glow=new THREE.PointLight(0xFF4B2B,0.5,2);
+  glow.position.set(x-0.1,y,z); scene.add(glow);
+  // animate glow
+  let t0=0;
+  const orig=glow.intensity;
+  function tick(){ glow.intensity=orig+Math.sin(t0)*0.1; t0+=0.05; requestAnimationFrame(tick); }
+  tick();
+}
+
+// ========== LIGHTS ==========
+function buildLights() {
+  ambientLight=new THREE.AmbientLight(0x1A1830,0.4); scene.add(ambientLight);
+
+  spotLight=new THREE.SpotLight(0xFFF5E0,0.8,20,Math.PI/4,0.5,1);
+  spotLight.position.set(0,3.8,0); spotLight.target.position.set(0,0,0);
+  spotLight.castShadow=true; spotLight.shadow.mapSize.set(1024,1024);
+  scene.add(spotLight); scene.add(spotLight.target);
+
+  warmLight=new THREE.PointLight(0xFFAA44,0.6,8);
+  warmLight.position.set(-3,3,-3); scene.add(warmLight);
+
+  rimLight=new THREE.PointLight(0x4488FF,0.3,10);
+  rimLight.position.set(3,2,3); scene.add(rimLight);
+
+  // ceiling recessed lights
+  const rLightPoz=[[-2,3.9,0],[2,3.9,0],[0,3.9,-2],[0,3.9,2]];
+  rLightPoz.forEach(([lx,ly,lz])=>{
+    const l=new THREE.PointLight(0xFFF0D0,0.4,5);
+    l.position.set(lx,ly,lz); scene.add(l);
+    // light housing
+    const h=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.08,0.05,16),
+      new THREE.MeshStandardMaterial({color:0x222222,metalness:0.7,roughness:0.3}));
+    h.position.set(lx,3.97,lz); scene.add(h);
+    const disk=new THREE.Mesh(new THREE.CircleGeometry(0.06,16),
+      new THREE.MeshBasicMaterial({color:0xFFF5D0}));
+    disk.rotation.x=-Math.PI/2; disk.position.set(lx,3.95,lz); scene.add(disk);
+  });
+}
+
+// ========== GRAND PIANO ==========
+function buildGrandPiano() {
+  const g = new THREE.Group();
+  g.name='grand-piano';
+  g.position.set(-3.5, 0, -3.5);
+  g.rotation.y = Math.PI/6;
+
+  const bodyMat=new THREE.MeshStandardMaterial({color:0x080808,roughness:0.05,metalness:0.3,
+    envMapIntensity:1});
+
+  // Main body hull
+  const bodyPts=[];
+  const curve=[{x:0,z:0},{x:1.5,z:0},{x:2.2,z:-0.5},{x:2.4,z:-1.2},{x:2,z:-2},{x:0.5,z:-2.8},{x:-0.5,z:-2.8},{x:-0.8,z:-1.5},{x:-0.8,z:0}];
+  // simplified box body
+  const bodyGeo=new THREE.BoxGeometry(2.4,0.22,2.8);
+  const body=new THREE.Mesh(bodyGeo,bodyMat); body.position.set(0,0.76,0);
+  body.castShadow=true; g.add(body);
+
+  // Lid
+  const lid=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.05,2.8),bodyMat);
+  lid.position.set(0,0.88,-0.3); lid.rotation.x=-0.25; lid.castShadow=true; g.add(lid);
+
+  // Keyboard housing
+  const keyHouse=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.12,0.45),bodyMat);
+  keyHouse.position.set(0,0.68,1.55); g.add(keyHouse);
+
+  // Piano keys
+  const keyMat=new THREE.MeshStandardMaterial({map:pianoKeyTexture(),roughness:0.2});
+  const keys=new THREE.Mesh(new THREE.BoxGeometry(1.55,0.04,0.38),keyMat);
+  keys.position.set(0,0.75,1.55); g.add(keys);
+
+  // Legs (3)
+  const legMat=new THREE.MeshStandardMaterial({color:0x050505,roughness:0.1,metalness:0.2});
+  const legGeo=new THREE.CylinderGeometry(0.04,0.06,0.65,8);
+  [[0.9,0,0.9],[0.9,0,-0.9],[-0.8,0,0.9]].forEach(([lx,_,lz])=>{
+    const leg=new THREE.Mesh(legGeo,legMat); leg.position.set(lx,0.33,lz);
+    leg.castShadow=true; g.add(leg);
+    // wheel
+    const wheel=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.04,8),
+      new THREE.MeshStandardMaterial({color:0x333,metalness:0.8,roughness:0.2}));
+    wheel.rotation.z=Math.PI/2; wheel.position.set(lx,0.05,lz); g.add(wheel);
+  });
+
+  // Music stand
+  const ms=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.5,0.02),bodyMat);
+  ms.position.set(0,1.2,0.6); ms.rotation.x=-0.3; g.add(ms);
+
+  // Pedals
+  const pedMat=new THREE.MeshStandardMaterial({color:0xB8960C,metalness:0.9,roughness:0.1});
+  [-0.1,0,0.1].forEach(px=>{
+    const p=new THREE.Mesh(new THREE.BoxGeometry(0.05,0.15,0.03),pedMat);
+    p.position.set(px,0.15,1.2); g.add(p);
+  });
+  // pedal housing
+  const ph=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.2,0.08),bodyMat);
+  ph.position.set(0,0.1,1.2); g.add(ph);
+
+  scene.add(g);
+  namedObjects['grand-piano']=g;
+  // add invisible hit target
+  const hit=new THREE.Mesh(new THREE.BoxGeometry(2.4,1.2,3),
+    new THREE.MeshBasicMaterial({visible:false}));
+  hit.position.copy(g.position); hit.position.y=0.6;
+  hit.rotation.copy(g.rotation); hit.name='grand-piano'; scene.add(hit); objects.push(hit);
+}
+
+// ========== MARIMBA ==========
+function buildMarimba() {
+  const g=new THREE.Group(); g.name='marimba';
+  g.position.set(3,0,-2.5);
+  g.rotation.y=-Math.PI/8;
+
+  const frameMat=new THREE.MeshStandardMaterial({color:0x2A1800,roughness:0.7,metalness:0.1,map:woodTexture(true)});
+  const metalMat2=new THREE.MeshStandardMaterial({color:0xA8A0A0,roughness:0.3,metalness:0.8});
+
+  // Frame rails
+  const railGeo=new THREE.BoxGeometry(2.8,0.05,0.06);
+  [[0,0.9,0.25],[0,0.9,-0.25]].forEach(([rx,ry,rz])=>{
+    const r=new THREE.Mesh(railGeo,frameMat); r.position.set(rx,ry,rz);
+    r.castShadow=true; g.add(r);
+  });
+
+  // Resonators (tubes under bars)
+  for(let i=0;i<20;i++){
+    const x=-1.3+i*0.135;
+    const h=0.4-i*0.01;
+    const tube=new THREE.Mesh(
+      new THREE.CylinderGeometry(0.025,0.025,h,8),
+      new THREE.MeshStandardMaterial({color:0xB8B0A0,roughness:0.3,metalness:0.7}));
+    tube.position.set(x,0.65-h/2,0); g.add(tube);
+  }
+
+  // Bars
+  const barMat=new THREE.MeshStandardMaterial({map:marimbaTex(),roughness:0.4,metalness:0.0,color:0xC87A30});
+  const barMesh=new THREE.Mesh(new THREE.BoxGeometry(2.7,0.03,0.22),barMat);
+  barMesh.position.set(0,0.92,0); barMesh.castShadow=true; g.add(barMesh);
+
+  // Legs
+  const legMat2=new THREE.MeshStandardMaterial({color:0x1A0F08,roughness:0.6});
+  const positions=[[1.1,0,0.3],[1.1,0,-0.3],[-1.1,0,0.3],[-1.1,0,-0.3]];
+  positions.forEach(([lx,_,lz])=>{
+    const leg=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.03,0.8,6),legMat2);
+    leg.position.set(lx,0.4,lz); leg.castShadow=true; g.add(leg);
+    // foot
+    const foot=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.04,6),metalMat2);
+    foot.position.set(lx,0.02,lz); g.add(foot);
+  });
+
+  // Mallets (2 pairs)
+  const mallMat=new THREE.MeshStandardMaterial({color:0x3A2010,roughness:0.7});
+  const headMat=new THREE.MeshStandardMaterial({color:0x808080,roughness:0.4,metalness:0.5});
+  [[-0.3,0.3],[0.3,0.3]].forEach(([mx,mz])=>{
+    const stick=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.4,6),mallMat);
+    stick.position.set(mx,1.1,mz); stick.rotation.z=Math.PI/8; g.add(stick);
+    const head=new THREE.Mesh(new THREE.SphereGeometry(0.025,8,8),headMat);
+    head.position.set(mx+0.1,1.25,mz); g.add(head);
+  });
+
+  scene.add(g);
+  namedObjects['marimba']=g;
+  const hit=new THREE.Mesh(new THREE.BoxGeometry(3,1.2,0.8),new THREE.MeshBasicMaterial({visible:false}));
+  hit.position.copy(g.position); hit.position.y=0.6; hit.rotation.copy(g.rotation);
+  hit.name='marimba'; scene.add(hit); objects.push(hit);
+}
+
+// ========== DRUM KIT ==========
+function buildDrumKit() {
+  const g=new THREE.Group(); g.name='drum-kit';
+  g.position.set(-0.5,0,2.5);
+
+  const shellMat=new THREE.MeshStandardMaterial({color:0x1A0A0A,roughness:0.3,metalness:0.15,map:woodTexture(true)});
+  const rimMat=new THREE.MeshStandardMaterial({color:0xB8B0A0,roughness:0.2,metalness:0.85});
+  const headMat2=new THREE.MeshStandardMaterial({color:0xEEEAE0,roughness:0.5,metalness:0.05});
+
+  function drum(rx,ry,rz,radius,h,tilt=0){
+    const d=new THREE.Group(); d.position.set(rx,ry,rz); d.rotation.z=tilt;
+    // Shell
+    const shell=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,h,16,1,true),shellMat);
+    shell.castShadow=true; d.add(shell);
+    // Top head
+    const top=new THREE.Mesh(new THREE.CircleGeometry(radius,16),headMat2);
+    top.rotation.x=-Math.PI/2; top.position.y=h/2; d.add(top);
+    // Rim
+    const rim=new THREE.Mesh(new THREE.TorusGeometry(radius+0.01,0.015,8,16),rimMat);
+    rim.position.y=h/2; rim.rotation.x=Math.PI/2; d.add(rim);
+    const rim2=new THREE.Mesh(new THREE.TorusGeometry(radius+0.01,0.015,8,16),rimMat);
+    rim2.position.y=-h/2; rim2.rotation.x=Math.PI/2; d.add(rim2);
+    g.add(d);
+  }
+
+  // Bass drum
+  drum(0,0.28,0, 0.28,0.36);
+  // Snare
+  drum(-0.55,0.62,0.3, 0.16,0.16);
+  // Hi-tom
+  drum(0.1,1.0,-0.05, 0.16,0.15, 0.2);
+  // Mid-tom
+  drum(0.45,0.95,0.1, 0.18,0.16, -0.15);
+  // Floor tom
+  drum(0.7,0.45,0.6, 0.22,0.35);
+
+  // Cymbals
+  const cymMat=new THREE.MeshStandardMaterial({color:0xC8A020,roughness:0.2,metalness:0.9});
+  function cymbal(cx,cy,cz,cr,tilt){
+    const c=new THREE.Mesh(new THREE.CylinderGeometry(cr,cr*0.97,0.008,24),cymMat);
+    c.position.set(cx,cy,cz); c.rotation.z=tilt||0; c.castShadow=true; g.add(c);
+    // bell
+    const bell=new THREE.Mesh(new THREE.SphereGeometry(cr*0.12,8,4,0,Math.PI*2,0,Math.PI/2),cymMat);
+    bell.position.set(cx,cy+(tilt?cr*Math.sin(Math.abs(tilt)):0)+0.008,cz); g.add(bell);
+  }
+  cymbal(-0.6,1.3,-0.2, 0.2, 0.1);  // hi-hat
+  cymbal(-0.62,0.6,-0.2,0.16,0);     // hi-hat bottom
+  cymbal(0.5,1.25,-0.15,0.24,-0.1);  // crash
+  cymbal(0.9,1.1,0.4, 0.22, 0.12);  // ride
+
+  // Hi-hat stand
+  const stMat=new THREE.MeshStandardMaterial({color:0x888888,metalness:0.8,roughness:0.2});
+  const stGeo=new THREE.CylinderGeometry(0.01,0.01,1.0,6);
+  const hhs=new THREE.Mesh(stGeo,stMat); hhs.position.set(-0.62,0.3,-0.2); g.add(hhs);
+
+  // Stool
+  const stool=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,0.04,16),
+    new THREE.MeshStandardMaterial({color:0x0A0A0A,roughness:0.3}));
+  stool.position.set(-0.2,0.55,0.7); g.add(stool);
+  const stoolLeg=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.04,0.55,6),stMat);
+  stoolLeg.position.set(-0.2,0.3,0.7); g.add(stoolLeg);
+
+  scene.add(g);
+  namedObjects['drum-kit']=g;
+  const hit=new THREE.Mesh(new THREE.BoxGeometry(2,1.5,1.5),new THREE.MeshBasicMaterial({visible:false}));
+  hit.position.copy(g.position); hit.position.y=0.75; hit.name='drum-kit'; scene.add(hit); objects.push(hit);
+}
+
+// ========== MONITORS ==========
+function buildMonitors() {
+  const monMat=new THREE.MeshStandardMaterial({color:0x1A1A1A,roughness:0.6,metalness:0.1});
+  const wfMat=new THREE.MeshStandardMaterial({color:0x888888,roughness:0.7,metalness:0.1});
+  const ledMat=new THREE.MeshBasicMaterial({color:0x00FF88});
+
+  function makeMonitor(x,z,ry,name){
+    const g=new THREE.Group(); g.position.set(x,1.1,z); g.rotation.y=ry;
+    // Cabinet
+    const cab=new THREE.Mesh(new THREE.BoxGeometry(0.28,0.36,0.28),monMat);
+    cab.castShadow=true; g.add(cab);
+    // Woofer
+    const woof=new THREE.Mesh(new THREE.CircleGeometry(0.1,16),wfMat);
+    woof.position.set(0,0.04,0.141); g.add(woof);
+    const sc=new THREE.Mesh(new THREE.CircleGeometry(0.03,8),new THREE.MeshStandardMaterial({color:0x222,metalness:0.8}));
+    sc.position.set(0,0.04,0.142); g.add(sc);
+    // Tweeter
+    const tw=new THREE.Mesh(new THREE.CircleGeometry(0.03,8),wfMat);
+    tw.position.set(0,0.13,0.141); g.add(tw);
+    // LED
+    const led=new THREE.Mesh(new THREE.CircleGeometry(0.008,6),ledMat);
+    led.position.set(0.1,-0.14,0.141); g.add(led);
+    // LED glow
+    const glow=new THREE.PointLight(0x00FF88,0.1,0.5);
+    glow.position.set(0.1,-0.14,0.15); g.add(glow);
+    scene.add(g);
+    namedObjects[name]=g;
+    const hit=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.4,0.3),new THREE.MeshBasicMaterial({visible:false}));
+    hit.position.set(x,1.1,z); hit.name=name; scene.add(hit); objects.push(hit);
+  }
+
+  makeMonitor(-4.5, -4.2, Math.PI*0.3, 'monitor-l');
+  makeMonitor(4.5, -4.2, -Math.PI*0.3, 'monitor-r');
+}
+
+// ========== FURNITURE ==========
+function buildFurniture() {
+  const woodMat=new THREE.MeshStandardMaterial({map:woodTexture(),roughness:0.6,metalness:0.0});
+  const metalMat=new THREE.MeshStandardMaterial({color:0x666666,roughness:0.3,metalness:0.8});
+
+  // Studio desk (back wall center)
+  const desk=new THREE.Group(); desk.position.set(0,0,-4.2);
+  const deskTop=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.05,0.7),woodMat);
+  deskTop.position.y=0.78; deskTop.castShadow=true; desk.add(deskTop);
+  [[1.1,0.4,0.3],[1.1,0.4,-0.3],[-1.1,0.4,0.3],[-1.1,0.4,-0.3]].forEach(([lx,ly,lz])=>{
+    const l=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.78,0.04),woodMat);
+    l.position.set(lx,ly,lz); desk.add(l);
+  });
+  scene.add(desk);
+
+  // Mixing board on desk
+  const mixMat=new THREE.MeshStandardMaterial({color:0x1A1A20,roughness:0.4,metalness:0.3});
+  const mix=new THREE.Mesh(new THREE.BoxGeometry(1.2,0.06,0.45),mixMat);
+  mix.position.set(0,0.82,-4.2); mix.rotation.x=-0.15;
+  mix.castShadow=true; scene.add(mix);
+  // Faders
+  const faderMat=new THREE.MeshStandardMaterial({color:0x888888,metalness:0.7,roughness:0.3});
+  for(let i=0;i<8;i++){
+    const f=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.04,0.12),faderMat);
+    f.position.set(-0.5+i*0.14, 0.86, -4.0);
+    f.rotation.x=-0.15+Math.random()*0.1; scene.add(f);
+  }
+
+  // Chairs/stools
+  const stoolMat=new THREE.MeshStandardMaterial({map:fabricTexture(30,20,20),roughness:0.8});
+  function stool2(sx,sz){
+    const g2=new THREE.Group(); g2.position.set(sx,0,sz);
+    const seat=new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,0.05,16),stoolMat);
+    seat.position.y=0.62; g2.add(seat);
+    const base=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.06,0.6,6),metalMat);
+    base.position.y=0.32; g2.add(base);
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(0.15,0.015,6,16),metalMat);
+    ring.rotation.x=Math.PI/2; ring.position.y=0.35; g2.add(ring);
+    scene.add(g2);
+  }
+  stool2(0,-3.6); stool2(-1,-3.2);
+
+  // Shelving unit on left wall
+  const shelfMat=new THREE.MeshStandardMaterial({color:0x1A1410,roughness:0.7,map:woodTexture(true)});
+  const shelf=new THREE.Group(); shelf.position.set(-5.5,0,1.5);
+  const back=new THREE.Mesh(new THREE.BoxGeometry(0.04,2.5,1.2),shelfMat);
+  back.position.set(0.02,1.25,0); shelf.add(back);
+  [0.5,1.0,1.5,2.0].forEach(sy=>{
+    const s=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.03,1.2),shelfMat);
+    s.position.set(0.04,sy,0); shelf.add(s);
+  });
+  scene.add(shelf);
+
+  // Music stand (portable)
+  const msMat=new THREE.MeshStandardMaterial({color:0x333333,metalness:0.7,roughness:0.3});
+  const msG=new THREE.Group(); msG.position.set(2,0,-0.5);
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,1.2,6),msMat);
+  pole.position.y=0.6; msG.add(pole);
+  const ledge=new THREE.Mesh(new THREE.BoxGeometry(0.4,0.02,0.08),msMat);
+  ledge.position.set(0,1.15,0.05); ledge.rotation.x=0.3; msG.add(ledge);
+  const back2=new THREE.Mesh(new THREE.BoxGeometry(0.38,0.3,0.01),msMat);
+  back2.position.set(0,1.27,0.04); back2.rotation.x=0.3; msG.add(back2);
+  const triA=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.01,0.5,4),msMat);
+  triA.position.set(0.15,0.25,0); triA.rotation.z=0.3; msG.add(triA);
+  const triB=new THREE.Mesh(new THREE.CylinderGeometry(0.01,0.01,0.5,4),msMat);
+  triB.position.set(-0.15,0.25,0); triB.rotation.z=-0.3; msG.add(triB);
+  scene.add(msG);
+
+  // Sheet music on stand
+  const sheetMat=new THREE.MeshStandardMaterial({color:0xF0EAD8,roughness:0.9});
+  const sheet=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.25,0.003),sheetMat);
+  sheet.position.set(2,1.28,-0.46); sheet.rotation.x=0.3; scene.add(sheet);
+}
+
+// ========== DECORATIONS ==========
+function buildDecorations() {
+  // Instrument cases on shelf
+  const caseMat=new THREE.MeshStandardMaterial({map:fabricTexture(20,20,25),roughness:0.9});
+  [[0,1.55,1.5],[0,1.55,0.5]].forEach(([cx,cy,cz])=>{
+    const cas=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.12,0.35),caseMat);
+    cas.position.set(-5.42,cy,cz); scene.add(cas);
+  });
+
+  // Floor lamp
+  const lampMat=new THREE.MeshStandardMaterial({color:0x888888,metalness:0.9,roughness:0.1});
+  const lampG=new THREE.Group(); lampG.position.set(4.5,0,-4);
+  const lPole=new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.03,1.8,8),lampMat);
+  lPole.position.y=0.9; lampG.add(lPole);
+  const lShade=new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.15,0.3,16,1,true),
+    new THREE.MeshStandardMaterial({color:0x222222,roughness:0.5,side:THREE.DoubleSide}));
+  lShade.position.y=1.9; lampG.add(lShade);
+  const lBase=new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.15,0.04,16),lampMat);
+  lBase.position.y=0.02; lampG.add(lBase);
+  scene.add(lampG);
+  const lp=new THREE.PointLight(0xFFD580,0.8,4); lp.position.set(4.5,1.85,-4); scene.add(lp);
+
+  // DAW monitor screen on desk
+  const screenMat=new THREE.MeshStandardMaterial({color:0x050510,roughness:0.05,metalness:0.5});
+  const screen=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.45,0.04),screenMat);
+  screen.position.set(0,1.12,-4.15); scene.add(screen);
+  // Screen glow (DAW waveform texture)
+  const dawTex=makeCanvasTex(256,160,(ctx,w,h)=>{
+    ctx.fillStyle='#020210'; ctx.fillRect(0,0,w,h);
+    // waveform
+    ctx.strokeStyle='#00FF88'; ctx.lineWidth=1.5;
+    ctx.beginPath();
+    for(let x=0;x<w;x++){
+      const y=h/2+Math.sin(x*0.2)*20+Math.sin(x*0.07)*30+Math.sin(x*0.5)*8;
+      x===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+    }
+    ctx.stroke();
+    // grid
+    ctx.strokeStyle='rgba(0,255,136,0.1)'; ctx.lineWidth=0.5;
+    for(let gx=0;gx<w;gx+=32){ ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,h); ctx.stroke(); }
+    for(let gy=0;gy<h;gy+=20){ ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(w,gy); ctx.stroke(); }
+    // text
+    ctx.fillStyle='rgba(0,255,136,0.6)'; ctx.font='10px monospace';
+    ctx.fillText('Das Drum & Rent — Studio A', 10, 15);
+  });
+  const glowScreen=new THREE.Mesh(new THREE.PlaneGeometry(0.62,0.39),
+    new THREE.MeshBasicMaterial({map:dawTex}));
+  glowScreen.position.set(0,1.12,-4.12); scene.add(glowScreen);
+  const sg=new THREE.PointLight(0x00FF88,0.15,1.5); sg.position.set(0,1.12,-4); scene.add(sg);
+
+  // Wall clock
+  const clockTex=makeCanvasTex(128,128,(ctx,w,h)=>{
+    ctx.fillStyle='#1A1A1E'; ctx.arc(w/2,h/2,w/2,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#C8A96E'; ctx.lineWidth=3;
+    ctx.arc(w/2,h/2,w/2-2,0,Math.PI*2); ctx.stroke();
+    for(let i=0;i<12;i++){
+      const a=i/12*Math.PI*2-Math.PI/2;
+      ctx.fillStyle='#C8A96E'; ctx.beginPath();
+      ctx.arc(w/2+Math.cos(a)*50,h/2+Math.sin(a)*50,4,0,Math.PI*2); ctx.fill();
+    }
+    const hr=new Date().getHours()%12/12*Math.PI*2-Math.PI/2;
+    const mn=new Date().getMinutes()/60*Math.PI*2-Math.PI/2;
+    ctx.strokeStyle='#E8E0D0'; ctx.lineWidth=3;
+    ctx.beginPath(); ctx.moveTo(w/2,h/2); ctx.lineTo(w/2+Math.cos(hr)*28,h/2+Math.sin(hr)*28); ctx.stroke();
+    ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(w/2,h/2); ctx.lineTo(w/2+Math.cos(mn)*42,h/2+Math.sin(mn)*42); ctx.stroke();
+  });
+  const clk=new THREE.Mesh(new THREE.CircleGeometry(0.25,32),new THREE.MeshStandardMaterial({map:clockTex,roughness:0.2}));
+  clk.position.set(0,3.2,4.98); clk.rotation.y=Math.PI; scene.add(clk);
+  const clkFrame=new THREE.Mesh(new THREE.TorusGeometry(0.27,0.03,8,32),
+    new THREE.MeshStandardMaterial({color:0x8B6914,metalness:0.7,roughness:0.3}));
+  clkFrame.position.copy(clk.position); clkFrame.rotation.y=Math.PI; scene.add(clkFrame);
+}
+
+// ========== EVENTS ==========
+function setupEvents() {
+  const c=document.getElementById('canvas-container');
+  c.addEventListener('mousedown', e=>{ mouse.down=true; mouse.lastX=e.clientX; mouse.lastY=e.clientY; });
+  window.addEventListener('mouseup', ()=>{ mouse.down=false; });
+  window.addEventListener('mousemove', e=>{
+    if(mouse.down){
+      const dx=e.clientX-mouse.lastX, dy=e.clientY-mouse.lastY;
+      if(camMode==='walk'){
+        camYaw -= dx*0.003; camPitch -= dy*0.003;
+        camPitch=Math.max(-1.2,Math.min(1.2,camPitch));
+      } else if(camMode==='orbit'){
+        orbitYaw += dx*0.005; orbitPitch -= dy*0.005;
+        orbitPitch=Math.max(0.05,Math.min(1.3,orbitPitch));
+      }
+      mouse.lastX=e.clientX; mouse.lastY=e.clientY;
+    }
+    // raycasting for hover
+    mouse.x=(e.clientX/window.innerWidth)*2-1;
+    mouse.y=-(e.clientY/window.innerHeight)*2+1;
+  });
+  c.addEventListener('wheel', e=>{
+    if(camMode==='orbit') { orbitRadius=Math.max(2,Math.min(15,orbitRadius+e.deltaY*0.01)); }
+    else { const d=camera.getWorldDirection(new THREE.Vector3()); camPos.addScaledVector(d,-e.deltaY*0.01); }
+  });
+  window.addEventListener('keydown', e=>{ keys[e.code]=true; });
+  window.addEventListener('keyup', e=>{ keys[e.code]=false; });
+  window.addEventListener('resize', ()=>{
+    camera.aspect=window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth,window.innerHeight);
+  });
+}
+
+function setView(mode) {
+  camMode=mode;
+  document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));
+  event.target.classList.add('active');
+  if(mode==='top'){
+    camera.position.set(0,10,0); camera.lookAt(0,0,0);
+    camPos.set(0,10,0);
+  }
+}
+
+// ========== PANEL ==========
+let panelOpen=false;
+function togglePanel(){
+  panelOpen=!panelOpen;
+  document.getElementById('side-panel').classList.toggle('open',panelOpen);
+  document.getElementById('panel-toggle').textContent=panelOpen?'PANEL ◂':'PANEL ▸';
+}
+
+function selectSurf(name){
+  selectedSurface=name;
+  document.querySelectorAll('.surf-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('sb-'+name).classList.add('active');
+}
+
+function handleImageUpload(e) {
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    uploadedImage=ev.target.result;
+    const prev=document.getElementById('img-preview');
+    prev.src=uploadedImage; prev.classList.add('visible');
+  };
+  reader.readAsDataURL(file);
+}
+
+function applyImage(){
+  if(!uploadedImage){alert('Please upload an image first'); return;}
+  const img=new Image();
+  img.onload=()=>{
+    const c=document.createElement('canvas'); c.width=img.width; c.height=img.height;
+    const ctx=c.getContext('2d'); ctx.drawImage(img,0,0);
+    const tex=new THREE.CanvasTexture(c);
+    tex.wrapS=tex.wrapT=THREE.ClampToEdgeWrapping;
+    const mesh=walls[selectedSurface];
+    if(mesh){ mesh.material.map=tex; mesh.material.needsUpdate=true; }
+  };
+  img.src=uploadedImage;
+}
+
+function updateLight(){
+  const a=document.getElementById('sl-ambient').value/100;
+  const s=document.getElementById('sl-spot').value/100;
+  const w=document.getElementById('sl-warm').value/100;
+  const f=document.getElementById('sl-fog').value/100;
+  document.getElementById('sv-ambient').textContent=document.getElementById('sl-ambient').value;
+  document.getElementById('sv-spot').textContent=document.getElementById('sl-spot').value;
+  document.getElementById('sv-warm').textContent=document.getElementById('sl-warm').value;
+  document.getElementById('sv-fog').textContent=document.getElementById('sl-fog').value;
+  ambientLight.intensity=a*0.8;
+  spotLight.intensity=s;
+  warmLight.intensity=w*0.8;
+  scene.fog.near=8+f*12; scene.fog.far=15+f*20;
+}
+
+// ========== ANIMATE ==========
+function animate() {
+  requestAnimationFrame(animate);
+  const dt=clock.getDelta();
+
+  if(camMode==='walk'){
+    const forward=new THREE.Vector3(-Math.sin(camYaw),0,-Math.cos(camYaw));
+    const right=new THREE.Vector3(Math.cos(camYaw),0,-Math.sin(camYaw));
+    const speed=3*dt;
+    if(keys['KeyW']||keys['ArrowUp']) camPos.addScaledVector(forward,speed);
+    if(keys['KeyS']||keys['ArrowDown']) camPos.addScaledVector(forward,-speed);
+    if(keys['KeyA']||keys['ArrowLeft']) camPos.addScaledVector(right,-speed);
+    if(keys['KeyD']||keys['ArrowRight']) camPos.addScaledVector(right,speed);
+    if(keys['KeyQ']) camPos.y+=speed*0.5;
+    if(keys['KeyE']) camPos.y-=speed*0.5;
+    // clamp
+    camPos.x=Math.max(-5.5,Math.min(5.5,camPos.x));
+    camPos.z=Math.max(-4.5,Math.min(4.5,camPos.z));
+    camPos.y=Math.max(0.5,Math.min(3.5,camPos.y));
+    camera.position.copy(camPos);
+    camera.rotation.y=camYaw; camera.rotation.x=camPitch;
+  } else if(camMode==='orbit'){
+    const tx=Math.cos(orbitPitch)*Math.sin(orbitYaw)*orbitRadius;
+    const ty=Math.sin(orbitPitch)*orbitRadius;
+    const tz=Math.cos(orbitPitch)*Math.cos(orbitYaw)*orbitRadius;
+    camera.position.set(tx,ty,tz);
+    camera.lookAt(orbitTarget);
+  } else if(camMode==='top'){
+    camera.position.set(0,10,0); camera.lookAt(0,0,0);
+  }
+
+  // Raycasting hover
+  raycaster.setFromCamera({x:mouse.x,y:mouse.y},camera);
+  const hits=raycaster.intersectObjects(objects,false);
+  const card=document.getElementById('info-card');
+  if(hits.length>0){
+    const hit=hits[0].object;
+    const info=OBJECT_INFO[hit.name];
+    if(info){
+      document.getElementById('ic-name').textContent=info.name;
+      document.getElementById('ic-desc').textContent=info.desc;
+      document.getElementById('ic-price').textContent=info.price;
+      card.classList.add('visible');
+    } else { card.classList.remove('visible'); }
+  } else { card.classList.remove('visible'); }
+
+  // warm light flicker (very subtle)
+  warmLight.intensity=0.6+Math.sin(Date.now()*0.0013)*0.03;
+
+  renderer.render(scene,camera);
+}
+
+// BOOT
+init();
+</script>
+</body>
+</html>
